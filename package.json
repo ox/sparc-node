@@ -1,0 +1,15 @@
+{
+  "name": "sparc-node",
+  "version": "1.0.0",
+  "description": "A tool for knowing when your Diffs are ready",
+  "author": "Artem Titoulenko <artem.titoulenko@gmail.com>",
+  "main": "app.js",
+  "scripts": {
+    "start": "electron ./"
+  },
+  "dependencies": {
+    "electron": "^0.4.1",
+    "q": "^1.4.1",
+    "qs": "^4.0.0"
+  }
+}
