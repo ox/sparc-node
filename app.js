@@ -9,6 +9,7 @@ var notifier = require('node-notifier');
 
 var config = require('./config.js');
 var Phabricator = require('./phabricator.js');
+var Diff = require('./diff.js');
 
 // TODO(artem): Create higher level construct called
 // Sparc or something that will check all your diffs
@@ -22,34 +23,6 @@ var appIcon = null;
 
 var user = {};
 var diffTimeout = null;
-
-function openDiffInBrowser(diffID) {
-  return function () {
-    var diffUrl = url.format({
-      hostname: hostParts.hostname,
-      protocol: hostParts.protocol,
-      pathname: '/D' + diffID
-    });
-
-    console.log('Opening Diff ' + diffUrl);
-
-    child_process.spawn('open', [diffUrl], {detached: true});
-  };
-}
-
-function makeMenuItemTemplateFromDiffs(diffs) {
-  var newContextMenuItems = [];
-
-  for (var i = 0; i < diffs.length; i++) {
-    var diff = diffs[i];
-    newContextMenuItems.push({
-      label: 'D' + diff.id + '[' + diff.statusName + ']',
-      click: openDiffInBrowser(diff.id)
-    });
-  }
-
-  return newContextMenuItems;
-}
 
 // pollPhabricator takes a user PHID and queries all of the accepted and open
 // diffs that the user authored.
@@ -65,6 +38,11 @@ function pollPhabricator(userPhid) {
         order: 'order-created',
         limit: 1
       })
+      .then(function (diffs) {
+        return diffs.map(function (diff) {
+          return new Diff(diff);
+        });
+      })
       .fail(function (err) {
         throw err;
       });
@@ -76,17 +54,17 @@ function pollPhabricator(userPhid) {
     .then(function () {
         // Flatten the list of diffs for each status type
         var flatDiffs = [].concat.apply([], promises);
-        var newContextMenuItems = makeMenuItemTemplateFromDiffs(flatDiffs);
+        var newContextMenuItems = flatDiffs.map(function (diff) { return diff.asMenuItem(); });
 
-        // TODO(artem): Should make a notification per Diff. More volume
-        // should drive more action.
-        if (newContextMenuItems.length) {
+        // Notify the user of every diff status change
+        //TODO(artem): actually check if the status changed from before
+        flatDiffs.map(function (diff) {
           notifier.notify({
-            title: "Diffs have action",
-            message: "Multiple Diffs have changed their status",
-            open: hostParts.hostname + '/differential'
+            title: 'D' + diff.id + ' ' + diff.statusName,
+            message: 'D' + diff.id + ' changed it\'s status. Check it out!',
+            open: diff.uri
           });
-        }
+        });
 
         // Append the Exit option
         newContextMenuItems.push({label: "Exit", click: app.quit});

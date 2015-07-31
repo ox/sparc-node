@@ -11,6 +11,7 @@
     "electron": "^0.4.1",
     "q": "^1.4.1",
     "qs": "^4.0.0",
-    "node-notifier": "~4.2.3"
+    "node-notifier": "~4.2.3",
+    "opener": "~1.4.1"
   }
 }
