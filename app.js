@@ -5,10 +5,14 @@ var app = require('app');
 var Menu = require('menu');
 var Tray = require('tray');
 var Q = require('q');
+var notifier = require('node-notifier');
 
 var config = require('./config.js');
 var Phabricator = require('./phabricator.js');
 
+// TODO(artem): Create higher level construct called
+// Sparc or something that will check all your diffs
+// across all of your Phabricator accounts.
 var host = Object.keys(config.hosts)[0];
 var hostParts = url.parse(host);
 var token = config.hosts[host].token;
@@ -27,10 +31,10 @@ function openDiffInBrowser(diffID) {
       pathname: '/D' + diffID
     });
 
-    console.log('opening Diff at ' + diffUrl);
+    console.log('Opening Diff ' + diffUrl);
 
     child_process.spawn('open', [diffUrl], {detached: true});
-  }
+  };
 }
 
 function makeMenuItemTemplateFromDiffs(diffs) {
@@ -47,6 +51,9 @@ function makeMenuItemTemplateFromDiffs(diffs) {
   return newContextMenuItems;
 }
 
+// pollPhabricator takes a user PHID and queries all of the accepted and open
+// diffs that the user authored.
+// TODO(artem): Should poll for diffs the user needs to review, as well
 function pollPhabricator(userPhid) {
   var promises = [];
   var queryStatuses = ['status-accepted', 'status-open'];
@@ -67,8 +74,24 @@ function pollPhabricator(userPhid) {
 
   return Q.all(promises)
     .then(function () {
+        // Flatten the list of diffs for each status type
         var flatDiffs = [].concat.apply([], promises);
         var newContextMenuItems = makeMenuItemTemplateFromDiffs(flatDiffs);
+
+        // TODO(artem): Should make a notification per Diff. More volume
+        // should drive more action.
+        if (newContextMenuItems.length) {
+          notifier.notify({
+            title: "Diffs have action",
+            message: "Multiple Diffs have changed their status",
+            open: hostParts.hostname + '/differential'
+          });
+        }
+
+        // Append the Exit option
+        newContextMenuItems.push({label: "Exit", click: app.quit});
+
+        // Set the menubar's context menu to the list of diffs
         var contextMenu = Menu.buildFromTemplate(newContextMenuItems);
         appIcon.setContextMenu(contextMenu);
     }).done();
@@ -96,7 +119,7 @@ function stopPhabricatorPoll () {
 }
 
 app.on('ready', function () {
-  app.dock.hide();
+  if (app.dock) app.dock.hide();
 
   appIcon = new Tray('./IconTemplate@2x.png');
   appIcon.setToolTip('SPARC – Keep track of your Diffs');

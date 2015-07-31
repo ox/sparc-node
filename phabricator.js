@@ -19,7 +19,7 @@ function Phabricator(host, token) {
 }
 
 Phabricator.prototype.exec = function (endpoint, opts) {
-  if (!opts) { opts = {} }
+  if (!opts) { opts = {}; }
   opts['api.token'] = this.token;
 
   if (!this.targetParts) {
@@ -42,15 +42,21 @@ Phabricator.prototype.exec = function (endpoint, opts) {
     });
 
     res.on('end', function() {
-      var ret = JSON.parse(body);
+      try {
+        var ret = JSON.parse(body);
 
-      if (ret.result == null) {
-        deferred.reject({
-          code: ret.error_code,
-          info: ret.error_info
-        });
-      } else {
-        deferred.resolve(ret.result);
+        if (ret.result === null) {
+          deferred.reject({
+            code: ret.error_code,
+            info: ret.error_info
+          });
+        } else {
+          deferred.resolve(ret.result);
+        }
+      } catch (e) {
+        console.error("Attempting to connect to " + apiPath + " but encountered an error parsing the response");
+        console.error(body);
+        deferred.reject(e);
       }
     });
   }).on('error', function (error) {
