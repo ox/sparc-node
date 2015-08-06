@@ -57,18 +57,16 @@ function pollPhabricator(userPhid) {
         var diffs = sets[j];
         console.log("---- %s", setNames[j]);
         contextMenuItems.push({
-          label: setNames[j],
+          label: setNames[j] + ':',
           enabled: false
         });
 
         for (var k = 0; k < diffs.length; k++) {
-          var diff = diffs[k];
-
-          diff = new Diff(diff);
+          var diff = new Diff(diffs[k]);
           console.log(diff.toString());
 
           contextMenuItems.push({
-            label: 'D' + diff.id + ' ' + diff.statusName,
+            label: 'D' + diff.id + ' ' + diff.statusName + ' "' +diff.title.slice(0, 18) + '..."',
             click: opener.bind(this, diff.uri)
           });
 
@@ -88,6 +86,11 @@ function pollPhabricator(userPhid) {
           newCache = newCache.set(diff.uri, diff);
         }
       }
+
+      // Add a separator after every host
+      contextMenuItems.push({
+        type: 'separator'
+      });
     }
 
     // TODO(artem): go over every diff that we used to have, decide if it
