@@ -8,6 +8,7 @@ var Q = require('q');
 var opener = require('opener');
 var Immutable = require('immutable');
 var notifier = require('node-notifier');
+var differ = require('jsondiffpatch');
 
 var config = require('./config.js');
 var Diff = require('./diff.js');
@@ -63,7 +64,6 @@ function pollPhabricator(userPhid) {
 
         for (var k = 0; k < diffs.length; k++) {
           var diff = new Diff(diffs[k]);
-          console.log(diff.toString());
 
           contextMenuItems.push({
             label: 'D' + diff.id + ' ' + diff.statusName + ' "' +diff.title.slice(0, 18) + '..."',
@@ -71,13 +71,20 @@ function pollPhabricator(userPhid) {
           });
 
           var cached = cachedDiffs.get(diff.uri);
-          if (!cached || cached.status != diff.status) {
+
+          var change = differ.diff(cached, diff);
+          if (!!change) {
+            console.log("%j", change);
+          }
+
+          if (!cached || cached.status !== diff.status) {
             // notify that an authored diff changed state, or if a new diff needs review
-            if (setNames[j] === "authored" || (setNames[j] === "reviewing" && diff.statusName === "Needs Review")) {
+            if (setNames[j] === 'authored' || (setNames[j] === 'reviewing' && diff.statusName === 'Needs Review')) {
+              console.log('notifying user about D' + diff.id);
               notifier.notify({
                 title: 'D' + diff.id + ' ' + diff.statusName,
                 message: diff.title,
-                open: opener.bind(this, diff.uri)
+                open: diff.uri
               });
             }
           }
@@ -98,6 +105,7 @@ function pollPhabricator(userPhid) {
     // you about it
 
     cachedDiffs = newCache;
+    console.log('\n\n\n\n');
 
     contextMenuItems.push({
       label: 'Exit',

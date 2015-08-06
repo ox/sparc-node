@@ -9,11 +9,12 @@
   },
   "dependencies": {
     "electron": "^0.4.1",
-    "q": "^1.4.1",
-    "qs": "^4.0.0",
+    "flatten": "0.0.1",
+    "immutable": "~3.7.4",
+    "jsondiffpatch": "^0.1.33",
     "node-notifier": "~4.2.3",
     "opener": "~1.4.1",
-    "flatten": "0.0.1",
-    "immutable": "~3.7.4"
+    "q": "^1.4.1",
+    "qs": "^4.0.0"
   }
 }
