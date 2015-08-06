@@ -117,6 +117,15 @@ function startPhabricatorPoll () {
   diffCheckingInterval = setInterval(pollPhabricator, 60000);
 }
 
+function stopPhabricatorPoll () {
+  clearInterval(diffCheckingInterval);
+}
+
+function restartPhabricatorPoll () {
+  stopPhabricatorPoll();
+  startPhabricatorPoll();
+}
+
 app.on('ready', function () {
   if (app.dock) app.dock.hide();
 
@@ -132,6 +141,6 @@ app.on('ready', function () {
   startPhabricatorPoll();
 
   app.on('closed', function () {
-    clearInterval(diffCheckingInterval);
+    stopPhabricatorPoll();
   });
 });
