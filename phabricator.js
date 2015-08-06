@@ -32,7 +32,6 @@ Phabricator.prototype.exec = function (endpoint, opts) {
   });
 
   var apiPath = url.format(urlOpts);
-
   var deferred = Q.defer();
   https.get(apiPath, function (res) {
     var body = '';
@@ -60,6 +59,7 @@ Phabricator.prototype.exec = function (endpoint, opts) {
       }
     });
   }).on('error', function (error) {
+    console.log("error connecting to " + apiPath + ": " + error);
     deferred.reject(error);
   });
 

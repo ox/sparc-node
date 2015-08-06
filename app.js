@@ -5,95 +5,113 @@ var app = require('app');
 var Menu = require('menu');
 var Tray = require('tray');
 var Q = require('q');
+var opener = require('opener');
+var Immutable = require('immutable');
 var notifier = require('node-notifier');
 
 var config = require('./config.js');
-var Phabricator = require('./phabricator.js');
 var Diff = require('./diff.js');
-
-// TODO(artem): Create higher level construct called
-// Sparc or something that will check all your diffs
-// across all of your Phabricator accounts.
-var host = Object.keys(config.hosts)[0];
-var hostParts = url.parse(host);
-var token = config.hosts[host].token;
-var phabricator = new Phabricator(host, token);
+var Sparc = require('./sparc.js');
+var sparc = new Sparc(config.hosts);
 
 var appIcon = null;
 
-var user = {};
-var diffTimeout = null;
+// Holds the interval for checking for diff changes
+var diffCheckingInterval = null;
+
+// Mapping of Diff URI to diff. Used to track Diff state changes
+var cachedDiffs = Immutable.Map({});
 
 // pollPhabricator takes a user PHID and queries all of the accepted and open
 // diffs that the user authored.
-// TODO(artem): Should poll for diffs the user needs to review, as well
 function pollPhabricator(userPhid) {
-  var promises = [];
-  var queryStatuses = ['status-accepted', 'status-open'];
+  sparc.exec('user.whoami')
+    .then(function (user) {
+      return Q.all(user.map(function (me) {
+        return Q.all([
+          sparc.exec('differential.query', {status: 'status-open', authors: [me.phid]}),
+          sparc.exec('differential.query', {status: 'status-open', reviewers: [me.phid]}),
+          ]);
+      }));
+    })
+  .then(function (results) {
+    var newCache = Immutable.Map({});
 
-  for (var i in queryStatuses) {
-    var promise = phabricator.exec('differential.query', {
-        authors: [userPhid],
-        status: queryStatuses[i],
-        order: 'order-created',
-        limit: 1
-      })
-      .then(function (diffs) {
-        return diffs.map(function (diff) {
-          return new Diff(diff);
-        });
-      })
-      .fail(function (err) {
-        throw err;
+    var contextMenuItems = [];
+
+    for (var i = 0; i < results.length; i++) {
+      var sets = results[i];
+      var hostname = sparc.hosts[i].targetParts.hostname;
+
+      console.log("-- %s", hostname);
+      contextMenuItems.push({
+        label: hostname,
+        enabled: false
       });
 
-    promises.push(promise);
-  }
+      // The first set is authored diffs, the next set are the diffs that are
+      // being reviewed
+      var setNames = ["authored", "reviewing"];
 
-  return Q.all(promises)
-    .then(function () {
-        // Flatten the list of diffs for each status type
-        var flatDiffs = [].concat.apply([], promises);
-        var newContextMenuItems = flatDiffs.map(function (diff) { return diff.asMenuItem(); });
-
-        // Notify the user of every diff status change
-        //TODO(artem): actually check if the status changed from before
-        flatDiffs.map(function (diff) {
-          notifier.notify({
-            title: 'D' + diff.id + ' ' + diff.statusName,
-            message: 'D' + diff.id + ' changed it\'s status. Check it out!',
-            open: diff.uri
-          });
+      for (var j = 0; j < sets.length; j++) {
+        var diffs = sets[j];
+        console.log("---- %s", setNames[j]);
+        contextMenuItems.push({
+          label: setNames[j],
+          enabled: false
         });
 
-        // Append the Exit option
-        newContextMenuItems.push({label: "Exit", click: app.quit});
+        for (var k = 0; k < diffs.length; k++) {
+          var diff = diffs[k];
 
-        // Set the menubar's context menu to the list of diffs
-        var contextMenu = Menu.buildFromTemplate(newContextMenuItems);
-        appIcon.setContextMenu(contextMenu);
-    }).done();
+          diff = new Diff(diff);
+          console.log(diff.toString());
+
+          contextMenuItems.push({
+            label: 'D' + diff.id + ' ' + diff.statusName,
+            click: opener.bind(this, diff.uri)
+          });
+
+          var cached = cachedDiffs.get(diff.uri);
+          if (!cached || cached.status != diff.status) {
+            // notify that a diff changed state
+            var notificationPayload = {
+              title: 'D' + diff.id + ' ' + diff.statusName,
+              message: diff.title,
+              open: opener.bind(this, diff.uri)
+            };
+
+            notifier.notify(notificationPayload);
+          }
+
+          // cache the new diff state
+          newCache = newCache.set(diff.uri, diff);
+        }
+      }
+    }
+
+    // TODO(artem): go over every diff that we used to have, decide if it
+    // was closed (you were reviewing a diff and it was landed), and notify
+    // you about it
+
+    cachedDiffs = newCache;
+
+    contextMenuItems.push({
+      label: 'Exit',
+      click: app.quit
+    });
+
+    var contextMenu = Menu.buildFromTemplate(contextMenuItems);
+    appIcon.setContextMenu(contextMenu);
+  });
 }
 
 function startPhabricatorPoll () {
-  return phabricator.exec('user.whoami')
-    .then(function (me) {
-      user = me;
+  // Poll phabricator once
+  pollPhabricator();
 
-      // Poll phabricator once
-      pollPhabricator(me.phid);
-
-      // Then poll again every  60 seconds
-      diffTimeout = setTimeout(pollPhabricator.bind(this, me.phid), 60000);
-    })
-    .fail(function (err) {
-      console.log(err);
-      throw err;
-    });
-}
-
-function stopPhabricatorPoll () {
- clearTimeout(diffTimeout);
+  // Then poll again every  60 seconds
+  diffCheckingInterval = setInterval(pollPhabricator, 60000);
 }
 
 app.on('ready', function () {
@@ -103,7 +121,7 @@ app.on('ready', function () {
   appIcon.setToolTip('SPARC – Keep track of your Diffs');
 
   var contextMenu = Menu.buildFromTemplate([
-    { label: 'Loading', enabled: false },
+    { label: 'Loading...', enabled: false },
     { label: 'Exit', click: app.quit }
   ]);
   appIcon.setContextMenu(contextMenu);
@@ -111,6 +129,6 @@ app.on('ready', function () {
   startPhabricatorPoll();
 
   app.on('closed', function () {
-    stopPhabricatorPoll();
+    clearInterval(diffCheckingInterval);
   });
 });
