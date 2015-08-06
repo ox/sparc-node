@@ -72,14 +72,14 @@ function pollPhabricator(userPhid) {
 
           var cached = cachedDiffs.get(diff.uri);
           if (!cached || cached.status != diff.status) {
-            // notify that a diff changed state
-            var notificationPayload = {
-              title: 'D' + diff.id + ' ' + diff.statusName,
-              message: diff.title,
-              open: opener.bind(this, diff.uri)
-            };
-
-            notifier.notify(notificationPayload);
+            // notify that an authored diff changed state, or if a new diff needs review
+            if (setNames[j] === "authored" || (setNames[j] === "reviewing" && diff.statusName === "Needs Review")) {
+              notifier.notify({
+                title: 'D' + diff.id + ' ' + diff.statusName,
+                message: diff.title,
+                open: opener.bind(this, diff.uri)
+              });
+            }
           }
 
           // cache the new diff state
