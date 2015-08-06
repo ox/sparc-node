@@ -122,7 +122,7 @@ function startPhabricatorPoll () {
   pollPhabricator();
 
   // Then poll again every  60 seconds
-  diffCheckingInterval = setInterval(pollPhabricator, 60000);
+  diffCheckingInterval = setInterval(pollPhabricator, 10000);
 }
 
 function stopPhabricatorPoll () {
