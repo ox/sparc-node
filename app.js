@@ -44,7 +44,6 @@ function pollPhabricator(userPhid) {
       var sets = results[i];
       var hostname = sparc.hosts[i].targetParts.hostname;
 
-      console.log("-- %s", hostname);
       contextMenuItems.push({
         label: hostname,
         enabled: false
@@ -56,7 +55,13 @@ function pollPhabricator(userPhid) {
 
       for (var j = 0; j < sets.length; j++) {
         var diffs = sets[j];
-        console.log("---- %s", setNames[j]);
+
+        // own is true if this is a Diff we authored
+        var own = j === 0;
+
+        // other is true if this is a Diff written by someone else
+        var other = j === 1;
+
         contextMenuItems.push({
           label: setNames[j] + ':',
           enabled: false
@@ -79,7 +84,7 @@ function pollPhabricator(userPhid) {
 
           if (!cached || cached.status !== diff.status) {
             // notify that an authored diff changed state, or if a new diff needs review
-            if (setNames[j] === 'authored' || (setNames[j] === 'reviewing' && diff.statusName === 'Needs Review')) {
+            if ((own && (diff.NeedsRevision() || diff.Accepted())) || (other && diff.NeedsReview())) {
               console.log('notifying user about D' + diff.id);
               notifier.notify({
                 title: 'D' + diff.id + ' ' + diff.statusName,
@@ -105,7 +110,6 @@ function pollPhabricator(userPhid) {
     // you about it
 
     cachedDiffs = newCache;
-    console.log('\n\n\n\n');
 
     contextMenuItems.push({
       label: 'Exit',
