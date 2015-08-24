@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "A tool for knowing when your Diffs are ready",
   "author": "Artem Titoulenko <artem.titoulenko@gmail.com>",
-  "main": "app.js",
+  "main": "./app/app.js",
   "scripts": {
     "start": "electron ./"
   },

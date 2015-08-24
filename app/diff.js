@@ -24,5 +24,4 @@ Diff.prototype.Accepted = function () {
   return this.statusName === 'Accepted';
 }
 
-
 module.exports = Diff;
