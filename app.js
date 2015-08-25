@@ -141,7 +141,7 @@ function restartPhabricatorPoll () {
 app.on('ready', function () {
   if (app.dock) app.dock.hide();
 
-  appIcon = new Tray('./IconTemplate@2x.png');
+  appIcon = new Tray('./resources/app/IconTemplate.png');
   appIcon.setToolTip('SPARC – Keep track of your Diffs');
 
   var contextMenu = Menu.buildFromTemplate([
