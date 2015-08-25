@@ -13,9 +13,9 @@ define LINUX_OPTS
 	--platform=linux --arch=x64
 endef
 export LINUX_OPTS
-linux:
+dist-linux:
 	electron-packager $(LINUX_OPTS)
-	zip dist/sparc-linux-x64.zip dist/sparc-linux-x64
+	zip -r dist/sparc-linux-x64.zip dist/sparc-linux-x64
 
 define DARWIN_OPTS
 	$(BUNDLE_OPTS) \
@@ -24,11 +24,11 @@ define DARWIN_OPTS
 	--helper-bundle-id=SparcHelper
 endef
 export DARWIN_OPTS
-darwin:
+dist-darwin:
 	electron-packager $(DARWIN_OPTS)
-	zip dist/sparc-darwin-x64.zip dist/sparc-darwin-x64
+	zip -r dist/sparc-darwin-x64.zip dist/sparc-darwin-x64
 
-all: linux darwin
+dist: dist-linux dist-darwin
 
 clean:
 	rm -r dist
